@@ -42,4 +42,33 @@ class Sentence():
             else:
                   return f"({s})"
             
-            
+# class to represent a logical symbol.
+
+class Symbol(Sentence):
+
+      def __init__(self, name):
+            self.name = name 
+      
+      def __eq__(self,other):
+            return isinstance(other,Symbol) and self.name==other.name 
+      
+           
+      def __hash__(self):
+            return hash(("Symbol",self.name))
+      
+      def __repr__(self):
+            return self.name 
+      
+      def evaluate(self,model):
+
+            try:
+                  return bool(model[self.name])
+            except KeyError:
+                  raise EvaluationException(f"variable {self.name} is not in model ")
+      
+      def formula(self):
+            return self.name 
+      
+      def symbols(self):
+            return {self.name}
+      
