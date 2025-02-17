@@ -71,4 +71,144 @@ class Symbol(Sentence):
       
       def symbols(self):
             return {self.name}
+
+
+# logical connectives.
+
+
+
+class Or(Sentence):
+      def __init__(self, *predicates):
+            for predicate in predicates:
+                  Sentence.validate(predicate)
+            self.predicates = list(predicates)
       
+
+      def __eq__(self,other):
+            return isinstance(other,Or) and self.predicates==other.predicates
+
+      def __hash__(self,other):
+            return isinstance(other, Or) and self.predicates==other.predicates
+      
+      def __hash__(self):
+        return hash(
+            ("or", tuple(hash(predicate) for predicate in self.predicates))
+        )
+ 
+      def __repr__(self):
+            predicates = ", ".join([str(predicate) for predicate in self.predicates])
+            return f"Or({predicates})"
+      
+      def evaluate(self, model):
+            return any(predicate.evaluate(model) for predicate in self.predicates)
+      
+      def formula(self):
+            if len(self.predicates) == 1:
+                  return self.predicates[0].formula()
+            return " ∨  ".join([Sentence.parenthesize(predicate.formula())
+                              for predicate in self.predicates])
+      
+      def symbols(self):
+            return set.union(*[predicate.symbols() for predicate in self.predicates])
+      
+ 
+class Implication(Sentence):
+    def __init__(self, antecedent, consequent):
+        Sentence.validate(antecedent)
+        Sentence.validate(consequent)
+        self.antecedent = antecedent
+        self.consequent = consequent
+ 
+    def __eq__(self, other):
+        return (isinstance(other, Implication)
+                and self.antecedent == other.antecedent
+                and self.consequent == other.consequent)
+ 
+    def __hash__(self):
+        return hash(("implies", hash(self.antecedent), hash(self.consequent)))
+ 
+    def __repr__(self):
+        return f"Implication({self.antecedent}, {self.consequent})"
+ 
+    def evaluate(self, model):
+        return ((not self.antecedent.evaluate(model))
+                or self.consequent.evaluate(model))
+ 
+    def formula(self):
+        antecedent = Sentence.parenthesize(self.antecedent.formula())
+        consequent = Sentence.parenthesize(self.consequent.formula())
+        return f"{antecedent} => {consequent}"
+ 
+    def symbols(self):
+        return set.union(self.antecedent.symbols(), self.consequent.symbols())
+ 
+ 
+class Biconditional(Sentence):
+    def __init__(self, left, right):
+        Sentence.validate(left)
+        Sentence.validate(right)
+        self.left = left
+        self.right = right
+ 
+    def __eq__(self, other):
+        return (isinstance(other, Biconditional)
+                and self.left == other.left
+                and self.right == other.right)
+ 
+    def __hash__(self):
+        return hash(("biconditional", hash(self.left), hash(self.right)))
+ 
+    def __repr__(self):
+        return f"Biconditional({self.left}, {self.right})"
+ 
+    def evaluate(self, model):
+        return ((self.left.evaluate(model)
+                 and self.right.evaluate(model))
+                or (not self.left.evaluate(model)
+                    and not self.right.evaluate(model)))
+ 
+    def formula(self):
+        left = Sentence.parenthesize(str(self.left))
+        right = Sentence.parenthesize(str(self.right))
+        return f"{left} <=> {right}"
+ 
+    def symbols(self):
+        return set.union(self.left.symbols(), self.right.symbols())
+ 
+ 
+def model_check(knowledge, query):
+    """Checks if knowledge base entails query."""
+ 
+    def check_all(knowledge, query, symbols, model):
+        """Checks if knowledge base entails query, given a particular model."""
+ 
+        # If model has an assignment for each symbol
+        if not symbols:
+ 
+            # If knowledge base is true in model, then query must also be true
+            if knowledge.evaluate(model):
+                return query.evaluate(model)
+            return True
+        else:
+ 
+            # Choose one of the remaining unused symbols
+            remaining = symbols.copy()
+            p = remaining.pop()
+ 
+            # Create a model where the symbol is true
+            model_true = model.copy()
+            model_true[p] = True
+ 
+            # Create a model where the symbol is false
+            model_false = model.copy()
+            model_false[p] = False
+ 
+            # Ensure entailment holds in both models
+            return (check_all(knowledge, query, remaining, model_true) and
+                    check_all(knowledge, query, remaining, model_false))
+ 
+    # Get all symbols in both knowledge and query
+    symbols = set.union(knowledge.symbols(), query.symbols())
+ 
+    # Check that knowledge entails query
+    return check_all(knowledge, query, symbols, dict())
